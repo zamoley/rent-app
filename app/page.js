@@ -7,47 +7,64 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   const test = async () => {
-    try {
-      setLoading(true);
+    setLoading(true);
 
-      console.log("Button clicked");
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        salary: 3000,
+        city: "Boston",
+        bedrooms: 1,
+      }),
+    });
 
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          salary: 3000,
-          city: "Boston",
-          bedrooms: 1,
-        }),
-      });
-
-      const data = await res.json();
-
-      console.log("API response:", data);
-
-      setResult(data);
-    } catch (err) {
-      console.error("Request failed:", err);
-    } finally {
-      setLoading(false);
-    }
+    const data = await res.json();
+    setResult(data);
+    setLoading(false);
   };
 
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Rent App</h1>
+    <div style={{ maxWidth: 600, margin: "40px auto", fontFamily: "Arial" }}>
+      <h1 style={{ fontSize: 28, marginBottom: 20 }}>
+        Rent Affordability Checker
+      </h1>
 
-      <button onClick={test} disabled={loading}>
-        {loading ? "Loading..." : "Test API"}
+      <button
+        onClick={test}
+        style={{
+          padding: "10px 20px",
+          background: "#111",
+          color: "white",
+          borderRadius: 8,
+          cursor: "pointer",
+        }}
+      >
+        {loading ? "Analyzing..." : "Test API"}
       </button>
 
       {result && (
-        <pre style={{ marginTop: 20 }}>
-          {JSON.stringify(result, null, 2)}
-        </pre>
+        <div
+          style={{
+            marginTop: 30,
+            padding: 20,
+            borderRadius: 12,
+            background:
+              result.verdict === "comfortable"
+                ? "#e6ffed"
+                : result.verdict === "stretch"
+                ? "#fff7e6"
+                : "#ffe6e6",
+          }}
+        >
+          <h2>Verdict: {result.verdict}</h2>
+          <p><b>Rent:</b> ${result.avg_rent}</p>
+          <p><b>Living costs:</b> ${result.est_living_costs}</p>
+          <p><b>Remaining:</b> ${result.remaining}</p>
+          <p style={{ marginTop: 10 }}>{result.summary}</p>
+        </div>
       )}
     </div>
   );
