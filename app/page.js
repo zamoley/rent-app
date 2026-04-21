@@ -4,23 +4,51 @@ import { useState } from "react";
 
 export default function Home() {
   const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const test = async () => {
-    const res = await fetch("/api/analyze", {
-      method: "POST",
-    });
+    try {
+      setLoading(true);
 
-    const data = await res.json();
-    setResult(data);
+      console.log("Button clicked");
+
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          salary: 3000,
+          city: "Boston",
+          bedrooms: 1,
+        }),
+      });
+
+      const data = await res.json();
+
+      console.log("API response:", data);
+
+      setResult(data);
+    } catch (err) {
+      console.error("Request failed:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div style={{ padding: 40 }}>
       <h1>Rent App</h1>
 
-      <button onClick={test}>Test API</button>
+      <button onClick={test} disabled={loading}>
+        {loading ? "Loading..." : "Test API"}
+      </button>
 
-      {result && <pre>{JSON.stringify(result, null, 2)}</pre>}
+      {result && (
+        <pre style={{ marginTop: 20 }}>
+          {JSON.stringify(result, null, 2)}
+        </pre>
+      )}
     </div>
   );
 }
