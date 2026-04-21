@@ -1,95 +1,126 @@
-export async function POST(req) {
-  let body;
+"use client";
 
-  try {
-    body = await req.json();
-  } catch {
-    return Response.json(
-      { error: "Invalid request" },
-      { status: 400 }
-    );
-  }
+import { useState } from "react";
 
-  const { salary = 3000, city = "Boston", bedrooms = 1 } = body;
+export default function Home() {
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // ---------- 1. STATIC FALLBACK MODEL ----------
-  const staticModel = () => {
-    const baseRentMap = {
-      Boston: 2500,
-      NewYork: 3200,
-      London: 2800,
-      default: 1800,
-    };
+  const test = async () => {
+    setLoading(true);
+    setResult(null);
 
-    const base = baseRentMap[city] || baseRentMap.default;
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        salary: 3000,
+        city: "Boston",
+        bedrooms: 1,
+      }),
+    });
 
-    const avg_rent = base * bedrooms;
-    const est_living_costs = salary * 0.35;
-    const remaining = salary - (avg_rent + est_living_costs);
-
-    let verdict = "comfortable";
-
-    if (avg_rent / salary > 0.5) verdict = "cannot_afford";
-    else if (avg_rent / salary > 0.3) verdict = "stretch";
-
-    return {
-      verdict,
-      avg_rent: Math.round(avg_rent),
-      est_living_costs: Math.round(est_living_costs),
-      remaining: Math.round(remaining),
-      summary: `Static estimate for ${city} (AI unavailable or fallback mode).`,
-    };
+    const data = await res.json();
+    setResult(data);
+    setLoading(false);
   };
 
-  // ---------- 2. TRY AI ----------
-  try {
-    const OpenAI = (await import("openai")).default;
+  const getVerdictStyle = (verdict) => {
+    switch (verdict) {
+      case "comfortable":
+        return { color: "#0a7a2f", label: "Comfortable" };
+      case "stretch":
+        return { color: "#b7791f", label: "Stretch Budget" };
+      case "cannot_afford":
+        return { color: "#c53030", label: "Not Affordable" };
+      default:
+        return { color: "#333", label: verdict };
+    }
+  };
 
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+  return (
+    <div style={{ maxWidth: 720, margin: "40px auto", fontFamily: "Arial" }}>
+      
+      {/* HEADER */}
+      <h1 style={{ fontSize: 30, marginBottom: 6 }}>
+        AI Financial Housing Advisor
+      </h1>
 
-    const response = await client.responses.create({
-      model: "gpt-4.1-mini",
-      input: `
-You are a cost-of-living analyst.
+      <p style={{ color: "#666", marginBottom: 20 }}>
+        Get a real-world affordability breakdown before you rent
+      </p>
 
-Return ONLY valid JSON:
+      {/* BUTTON */}
+      <button
+        onClick={test}
+        style={{
+          padding: "12px 20px",
+          background: "#111",
+          color: "white",
+          borderRadius: 10,
+          cursor: "pointer",
+          fontSize: 14,
+        }}
+      >
+        {loading ? "Analyzing your finances..." : "Check Affordability"}
+      </button>
 
-{
-  "verdict": "comfortable | stretch | cannot_afford",
-  "avg_rent": number,
-  "est_living_costs": number,
-  "remaining": number,
-  "summary": "short explanation"
-}
+      {/* LOADING STATE */}
+      {loading && (
+        <div style={{ marginTop: 30, color: "#666" }}>
+          <p>📊 Analyzing rent vs income ratio...</p>
+          <p>🏙 Checking local cost-of-living patterns...</p>
+          <p>💡 Building financial recommendation...</p>
+        </div>
+      )}
 
-User:
-Salary: ${salary}
-City: ${city}
-Bedrooms: ${bedrooms}
-`,
-    });
+      {/* RESULT */}
+      {result && (
+        <div
+          style={{
+            marginTop: 30,
+            padding: 20,
+            borderRadius: 14,
+            background: "#f7f7f7",
+            border: "1px solid #e5e5e5",
+          }}
+        >
+          {/* VERDICT HEADER */}
+          <h2 style={{ marginBottom: 10 }}>
+            Financial Assessment
+          </h2>
 
-    const text = response.output_text;
+          <div
+            style={{
+              fontSize: 18,
+              fontWeight: "bold",
+              color: getVerdictStyle(result.verdict).color,
+              marginBottom: 15,
+            }}
+          >
+            {getVerdictStyle(result.verdict).label}
+          </div>
 
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
+          {/* AI-STYLE EXPLANATION */}
+          <p style={{ marginBottom: 15, lineHeight: 1.5 }}>
+            {result.summary}
+          </p>
 
-    if (start === -1 || end === -1) throw new Error("Invalid AI output");
+          {/* DATA BREAKDOWN */}
+          <div style={{ fontSize: 14, color: "#444", lineHeight: 1.8 }}>
+            <div>🏠 Estimated Rent: <b>${result.avg_rent}</b></div>
+            <div>💸 Living Costs: <b>${result.est_living_costs}</b></div>
+            <div>💰 Remaining Income: <b>${result.remaining}</b></div>
+          </div>
 
-    const json = JSON.parse(text.slice(start, end + 1));
-
-    return Response.json({
-      ...json,
-      mode: "ai",
-    });
-  } catch (error) {
-    // ---------- 3. FALLBACK ----------
-    return Response.json({
-      ...staticModel(),
-      mode: "static_fallback",
-      debug: error.message,
-    });
-  }
+          {/* DISCLAIMER STYLE (makes it feel “advisor-like”) */}
+          <p style={{ marginTop: 15, fontSize: 12, color: "#888" }}>
+            *This is an automated financial estimate and not professional financial advice.
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
