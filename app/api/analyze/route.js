@@ -5,48 +5,26 @@ const client = new OpenAI({
 });
 
 export async function POST(req) {
+  const body = await req.json();
+  const { salary, city, bedrooms } = body;
+
   try {
-    const body = await req.json();
-    const { salary, city, bedrooms } = body;
-
-    const prompt = `
-You are a real estate affordability expert.
-
-A user earns $${salary} per month after tax and wants a ${bedrooms}-bedroom apartment in ${city}.
-
-Return ONLY valid JSON in this format:
-{
-  "verdict": "comfortable | stretch | cannot_afford",
-  "avg_rent": number,
-  "est_living_costs": number,
-  "remaining": number,
-  "summary": "string explanation"
-}
-
-Rules:
-- Use realistic rent estimates for ${city}
-- Rent is for ${bedrooms}-bedroom apartments only
-- Keep response strictly JSON, no extra text
-`;
-
     const response = await client.responses.create({
       model: "gpt-4.1-mini",
-      input: prompt,
+      input: `Return JSON only: salary=${salary}, city=${city}, bedrooms=${bedrooms}`,
     });
 
-    const text = response.output_text;
-
-    // Safely parse AI JSON
-    const json = JSON.parse(text);
-
+    const json = JSON.parse(response.output_text);
     return Response.json(json);
+
   } catch (error) {
-    return Response.json(
-      {
-        error: "AI request failed",
-        details: error.message,
-      },
-      { status: 500 }
-    );
+    // fallback mode (NO AI)
+    return Response.json({
+      verdict: "stretch",
+      avg_rent: salary * 0.5,
+      est_living_costs: salary * 0.3,
+      remaining: salary * 0.2,
+      summary: "Fallback mode (AI unavailable due to quota)."
+    });
   }
 }
